@@ -1,2 +1,4 @@
 Flask
-scipy
+numpy 
+scipy 
+customtkinter
