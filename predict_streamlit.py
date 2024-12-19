@@ -239,8 +239,8 @@ def predict_match(
     return predicted_winner, player1_win_rate, confidence_interval
 
 def main():
-    st.title("Tennis Match Predictor")
-
+    st.title("slPredict - Tennis Monte Carlos Simulation")
+    st.write("Run monte carlo simulations to predict the winner of a tennis match, using the recent statistics of both players.")   
     num_simulations = st.number_input(
         "Number of Simulations",
         min_value=100,
