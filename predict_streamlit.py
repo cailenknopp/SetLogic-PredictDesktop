@@ -3,6 +3,8 @@ import numpy as np
 import random
 from typing import List, Dict, Tuple
 from scipy import stats  # For confidence intervals
+import matplotlib.pyplot as plt
+import io
 
 # Inject CSS for light mode theme
 st.markdown(
@@ -239,8 +241,8 @@ def predict_match(
     return predicted_winner, player1_win_rate, confidence_interval
 
 def main():
-    st.title("slPredict - Tennis Monte Carlos Simulation")
-    st.write("Run monte carlo simulations to predict the winner of a tennis match, using the recent statistics of both players.")   
+    st.title("slPredict - Tennis Monte Carlo Simulation")
+    st.write("Run Monte Carlo simulations to predict the winner of a tennis match, using the recent statistics of both players.")   
     num_simulations = st.number_input(
         "Number of Simulations",
         min_value=100,
@@ -371,7 +373,7 @@ def main():
         }
         p2_stats_list.append(match_stats)
 
-    if st.button("Run Simulation"):
+    if st.button("Predict Match"):
         try:
             player1_avg_stats = compute_average_stats(p1_stats_list, p1_name)
             player2_avg_stats = compute_average_stats(p2_stats_list, p2_name)
@@ -389,37 +391,63 @@ def main():
                 f"{confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%"
             )
 
+            # Generate and display the bar chart
+            fig, ax = plt.subplots()
+            players = [player1_avg_stats['name'], player2_avg_stats['name']]
+            win_rates = [win_rate * 100, (100 - win_rate * 100)]
+            colors = ['blue', 'orange']
+
+            ax.bar(players, win_rates, color=colors)
+            ax.set_ylabel('Win Rate (%)')
+            ax.set_title('Match Prediction Win Rates')
+            for i, v in enumerate(win_rates):
+                ax.text(i, v + 1, f"{v:.2f}%", ha='center', va='bottom')
+            st.pyplot(fig)
+
+            # Save the plot to a bytes buffer
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            buf.seek(0)
+
             # Prepare the report content
             report = f"""
-            **slPredict Simulation: {player1_avg_stats['name']} vs {player2_avg_stats['name']}**
+**Tennis Match Prediction Report**
 
-            **Number of Simulations:** {num_simulations}
+**Number of Simulations:** {num_simulations}
 
-            **Player 1: {player1_avg_stats['name']}**
-            - Serve Percentage: {player1_avg_stats['serve_percentage']:.2f}
-            - Break Point Conversion: {player1_avg_stats['break_point_conversion']:.2f}
-            - First Serve Won: {player1_avg_stats['first_serve_won']:.2f}
-            - Second Serve Won: {player1_avg_stats['second_serve_won']:.2f}
+**Player 1: {player1_avg_stats['name']}**
+- Serve Percentage: {player1_avg_stats['serve_percentage']:.2f}
+- Break Point Conversion: {player1_avg_stats['break_point_conversion']:.2f}
+- First Serve Won: {player1_avg_stats['first_serve_won']:.2f}
+- Second Serve Won: {player1_avg_stats['second_serve_won']:.2f}
 
-            **Player 2: {player2_avg_stats['name']}**
-            - Serve Percentage: {player2_avg_stats['serve_percentage']:.2f}
-            - Break Point Conversion: {player2_avg_stats['break_point_conversion']:.2f}
-            - First Serve Won: {player2_avg_stats['first_serve_won']:.2f}
-            - Second Serve Won: {player2_avg_stats['second_serve_won']:.2f}
+**Player 2: {player2_avg_stats['name']}**
+- Serve Percentage: {player2_avg_stats['serve_percentage']:.2f}
+- Break Point Conversion: {player2_avg_stats['break_point_conversion']:.2f}
+- First Serve Won: {player2_avg_stats['first_serve_won']:.2f}
+- Second Serve Won: {player2_avg_stats['second_serve_won']:.2f}
 
-            **Prediction Results**
-            - Predicted Winner: {predicted_winner}
-            - {player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%
-            - {player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%
-            - 95% Confidence Interval for {player1_avg_stats['name']} Win Rate: {confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%
-            """
+**Prediction Results**
+- Predicted Winner: {predicted_winner}
+- {player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%
+- {player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%
+- 95% Confidence Interval for {player1_avg_stats['name']} Win Rate: {confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%
+"""
 
-            # Add the download button
+            # Add the download button for the report
             st.download_button(
                 label="Download Results Report",
                 data=report,
                 file_name="tennis_match_prediction_report.txt",
                 mime="text/plain"
+            )
+
+            # Add the download button for the graph
+            st.download_button(
+                label="Download Win Rates Graph",
+                data=buf,
+                file_name="win_rates_graph.png",
+                mime="image/png"
             )
 
         except ValueError as e:
