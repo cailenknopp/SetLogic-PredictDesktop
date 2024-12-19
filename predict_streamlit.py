@@ -371,7 +371,7 @@ def main():
         }
         p2_stats_list.append(match_stats)
 
-    if st.button("Predict Match"):
+    if st.button("Run Simulation"):
         try:
             player1_avg_stats = compute_average_stats(p1_stats_list, p1_name)
             player2_avg_stats = compute_average_stats(p2_stats_list, p2_name)
@@ -391,7 +391,7 @@ def main():
 
             # Prepare the report content
             report = f"""
-            **Tennis Match Prediction Report**
+            **slPredict Simulation: {player1_avg_stats['name']} vs {player2_avg_stats['name']}**
 
             **Number of Simulations:** {num_simulations}
 
