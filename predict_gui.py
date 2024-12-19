@@ -5,6 +5,9 @@ from typing import List, Dict, Tuple
 from scipy import stats  # For confidence intervals
 import customtkinter as ctk
 from tkinter import messagebox
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 # Initialize CustomTkinter
 ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
@@ -178,7 +181,7 @@ def compute_average_stats(stats_list: List[Dict], name: str) -> Dict:
 
 def predict_match(
     player1_avg_stats: Dict, player2_avg_stats: Dict, num_simulations: int = 1000
-) -> Tuple[str, float, Tuple[float, float]]:
+) -> Tuple[str, float, Tuple[float, float], Dict]:
     """Predict match winner and return winner name with win probability and confidence interval."""
     player1_wins = 0
     player2_wins = 0
@@ -233,7 +236,13 @@ def predict_match(
         player1_avg_stats['name'] if player1_win_rate > player2_win_rate else player2_avg_stats['name']
     )
 
-    return predicted_winner, player1_win_rate, confidence_interval
+    # Collect histogram data
+    win_rates = {
+        'Player 1': player1_wins,
+        'Player 2': player2_wins
+    }
+
+    return predicted_winner, player1_win_rate, confidence_interval, win_rates
 
 
 class PredictGUI(ctk.CTk):
@@ -241,11 +250,11 @@ class PredictGUI(ctk.CTk):
         super().__init__()
 
         self.title("Tennis Match Predictor")
-        self.geometry("800x600")
+        self.geometry("800x800")
         self.resizable(False, False)
 
         # Create Tabs
-        self.tabview = ctk.CTkTabview(self, width=780, height=580)
+        self.tabview = ctk.CTkTabview(self, width=780, height=780)
         self.tabview.pack(pady=10, padx=10)
         self.tabview.add("Players")
         self.tabview.add("Simulation")
@@ -261,7 +270,7 @@ class PredictGUI(ctk.CTk):
 
     def create_players_tab(self):
         # Create a Scrollable Frame within the Players tab
-        self.scrollable_frame = ctk.CTkScrollableFrame(self.tab_players, corner_radius=10, width=760, height=580)
+        self.scrollable_frame = ctk.CTkScrollableFrame(self.tab_players, corner_radius=10, width=760, height=780)
         self.scrollable_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
         # Container Frame to center content
@@ -372,24 +381,59 @@ class PredictGUI(ctk.CTk):
     def create_simulation_tab(self):
         # Simulation Controls
         controls_frame = ctk.CTkFrame(self.tab_simulation, corner_radius=10)
-        controls_frame.pack(pady=20, padx=20, fill="both", expand=True)
+        controls_frame.pack(pady=20, padx=20, fill="x")
 
         simulations_label = ctk.CTkLabel(controls_frame, text="Number of Simulations:", font=("Arial", 14))
-        simulations_label.pack(pady=10, anchor="center")  # Centered label
+        simulations_label.pack(pady=10)  # Centered label by default
 
-        self.num_simulations = ctk.CTkEntry(controls_frame, placeholder_text="e.g., 1000")
-        self.num_simulations.pack(pady=5, fill="x", padx=100, anchor="center")  # Centered entry
+        self.num_simulations = ctk.CTkEntry(controls_frame, placeholder_text="e.g., 1000", width=200)
+        self.num_simulations.pack(pady=5, anchor="center")  # Smaller and centered entry
 
         run_button = ctk.CTkButton(controls_frame, text="Run Simulation", command=self.run_simulation)
-        run_button.pack(pady=20, anchor="center")  # Centered button
+        run_button.pack(pady=10)  # Reduced padding for better layout
+
+        export_button = ctk.CTkButton(controls_frame, text="Export Summary", command=self.export_summary)
+        export_button.pack(pady=10)  # Export button
 
         # Results Display
         results_frame = ctk.CTkFrame(self.tab_simulation, corner_radius=10)
         results_frame.pack(pady=10, padx=20, fill="both", expand=True)
 
-        self.results_text = ctk.CTkTextbox(results_frame, width=760, height=300)
-        self.results_text.pack(pady=10, padx=10)
-        self.results_text.configure(state="disabled")
+        # Average Stats Labels
+        self.results_labels_frame = ctk.CTkFrame(results_frame, corner_radius=10)
+        self.results_labels_frame.pack(pady=10, padx=10, fill="x")
+
+        self.player1_win_rate_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 12))
+        self.player1_win_rate_label.pack(pady=5)
+
+        self.player2_win_rate_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 12))
+        self.player2_win_rate_label.pack(pady=5)
+
+        self.confidence_interval_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 12))
+        self.confidence_interval_label.pack(pady=5)
+
+        self.predicted_winner_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 14, "bold"))
+        self.predicted_winner_label.pack(pady=10)
+
+        # Average Stats for Player 1
+        self.player1_avg_stats_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 12, "bold"))
+        self.player1_avg_stats_label.pack(pady=5)
+
+        # Average Stats for Player 2
+        self.player2_avg_stats_label = ctk.CTkLabel(self.results_labels_frame, text="", font=("Arial", 12, "bold"))
+        self.player2_avg_stats_label.pack(pady=5)
+
+        # Graph Display
+        self.graph_frame = ctk.CTkFrame(results_frame, corner_radius=10)
+        self.graph_frame.pack(pady=10, padx=10, fill="both", expand=True)
+
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.ax = self.figure.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.graph_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.ax.set_title("Simulation Results")
+        self.ax.set_xlabel("Players")
+        self.ax.set_ylabel("Number of Wins")
 
     def gather_player_stats(self, player_number: int) -> List[Dict]:
         if player_number == 1:
@@ -470,7 +514,7 @@ class PredictGUI(ctk.CTk):
 
         # Run Prediction
         try:
-            winner, win_rate, confidence_interval = predict_match(
+            winner, win_rate, confidence_interval, win_rates = predict_match(
                 player1_avg_stats, player2_avg_stats, num_simulations
             )
         except Exception as e:
@@ -478,14 +522,88 @@ class PredictGUI(ctk.CTk):
             return
 
         # Display Results
-        self.results_text.configure(state="normal")
-        self.results_text.delete("0.0", ctk.END)
-        self.results_text.insert(ctk.END, f"Monte Carlo simulation results ({num_simulations} iterations):\n")
-        self.results_text.insert(ctk.END, f"{player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%\n")
-        self.results_text.insert(ctk.END, f"{player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%\n")
-        self.results_text.insert(ctk.END, f"95% Confidence Interval for {player1_avg_stats['name']}: {confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%\n")
-        self.results_text.insert(ctk.END, f"Predicted Winner: {winner}\n")
-        self.results_text.configure(state="disabled")
+        self.player1_win_rate_label.configure(text=f"{player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%")
+        self.player2_win_rate_label.configure(text=f"{player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%")
+        self.confidence_interval_label.configure(text=f"95% Confidence Interval for {player1_avg_stats['name']}: {confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%")
+        self.predicted_winner_label.configure(text=f"Predicted Winner: {winner}")
+
+        # Display Average Stats
+        player1_stats_text = (
+            f"{player1_avg_stats['name']} Average Stats:\n"
+            f" Serve Percentage: {player1_avg_stats['serve_percentage']*100:.2f}%\n"
+            f" Break Point Conversion: {player1_avg_stats['break_point_conversion']*100:.2f}%\n"
+            f" First Serve Won: {player1_avg_stats['first_serve_won']*100:.2f}%\n"
+            f" Second Serve Won: {player1_avg_stats['second_serve_won']*100:.2f}%"
+        )
+        self.player1_avg_stats_label.configure(text=player1_stats_text)
+
+        player2_stats_text = (
+            f"{player2_avg_stats['name']} Average Stats:\n"
+            f" Serve Percentage: {player2_avg_stats['serve_percentage']*100:.2f}%\n"
+            f" Break Point Conversion: {player2_avg_stats['break_point_conversion']*100:.2f}%\n"
+            f" First Serve Won: {player2_avg_stats['first_serve_won']*100:.2f}%\n"
+            f" Second Serve Won: {player2_avg_stats['second_serve_won']*100:.2f}%"
+        )
+        self.player2_avg_stats_label.configure(text=player2_stats_text)
+
+        # Update Graph
+        self.ax.clear()
+        self.ax.set_title("Simulation Results")
+        self.ax.set_xlabel("Players")
+        self.ax.set_ylabel("Number of Wins")
+        players = [player1_avg_stats['name'], player2_avg_stats['name']]
+        wins = [win_rates['Player 1'], win_rates['Player 2']]
+        self.ax.bar(players, wins, color=['blue', 'green'])
+        self.canvas.draw()
+
+    def export_summary(self):
+        """Export a 600x600 summary PNG with the graph and answers displayed."""
+        # Retrieve current simulation results
+        player1_text = self.player1_win_rate_label.cget("text")
+        player2_text = self.player2_win_rate_label.cget("text")
+        confidence_text = self.confidence_interval_label.cget("text")
+        winner_text = self.predicted_winner_label.cget("text")
+        player1_avg_text = self.player1_avg_stats_label.cget("text")
+        player2_avg_text = self.player2_avg_stats_label.cget("text")
+
+        # Create a matplotlib figure
+        fig = Figure(figsize=(6, 6), dpi=100)
+        ax1 = fig.add_subplot(211)
+        ax2 = fig.add_subplot(212)
+
+        # Plot the simulation graph
+        players = [player1_avg_stats['name'] for player1_avg_stats in [
+            compute_average_stats(self.gather_player_stats(1), self.player1_name.get().strip())
+        ]][0:1] + [player2_avg_stats['name'] for player2_avg_stats in [
+            compute_average_stats(self.gather_player_stats(2), self.player2_name.get().strip())
+        ]][0:1]
+        wins = [self.player1_win_rate_label.cget("text").split(': ')[1].replace('%', ''),
+                self.player2_win_rate_label.cget("text").split(': ')[1].replace('%', '')]
+
+        try:
+            wins = [int(float(win)) * 10 for win in wins]  # Scaled for visibility
+        except:
+            wins = [0, 0]  # Default if parsing fails
+
+        ax1.bar(players, wins, color=['blue', 'green'])
+        ax1.set_title("Simulation Results")
+        ax1.set_xlabel("Players")
+        ax1.set_ylabel("Number of Wins")
+
+        # Add simulation details as text
+        details = f"{player1_text}\n{player2_text}\n{confidence_text}\n{winner_text}\n\n{player1_avg_text}\n\n{player2_avg_text}"
+        ax2.text(0.5, 0.5, details, horizontalalignment='center', verticalalignment='center', transform=ax2.transAxes, fontsize=10)
+        ax2.axis('off')  # Hide the axes
+
+        # Adjust layout
+        fig.tight_layout()
+
+        # Save the figure as a PNG
+        try:
+            fig.savefig("simulation_summary.png")
+            messagebox.showinfo("Export Successful", "Summary exported as 'simulation_summary.png'.")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"An error occurred while exporting: {e}")
 
 
 if __name__ == "__main__":
