@@ -1,10 +1,8 @@
 import streamlit as st
 import numpy as np
 import random
-import statistics
 from typing import List, Dict, Tuple
 from scipy import stats  # For confidence intervals
-
 
 # Player class representing a tennis player
 class Player:
@@ -28,7 +26,6 @@ class Player:
         self.games_won = games_won
         self.points_won = points_won
 
-
 # Match class simulating a tennis match between two players
 class Match:
     def __init__(self, player1: Player, player2: Player):
@@ -46,72 +43,256 @@ class Match:
         return server if point_won else receiver
 
     def simulate_game(self, server: Player, receiver: Player) -> Player:
-        server_points = 0
-        receiver_points = 0
+        points_server = 0
+        points_receiver = 0
         while True:
             point_winner = self.simulate_point(server, receiver)
             if point_winner == server:
-                server_points += 1
+                points_server += 1
             else:
-                receiver_points += 1
+                points_receiver += 1
 
-            # Simple game win condition
-            if server_points >= 4 and server_points - receiver_points >= 2:
-                server.games_won += 1
-                return server
-            if receiver_points >= 4 and receiver_points - server_points >= 2:
-                receiver.games_won += 1
-                return receiver
+            # Check for game win
+            if points_server >= 4 and points_server - points_receiver >= 2:
+                return server  # Server wins the game
+            if points_receiver >= 4 and points_receiver - points_server >= 2:
+                return receiver  # Receiver wins the game
 
-    def simulate_set(self, server: Player, receiver: Player) -> Player:
+    def simulate_tie_break(self, server: Player, receiver: Player) -> Player:
+        points_p1 = 0
+        points_p2 = 0
+        current_server = server
+        current_receiver = receiver
+        serve_changes = 0
+        total_points = 0
+
         while True:
-            game_winner = self.simulate_game(server, receiver)
-            if game_winner == server:
-                server.sets_won += 1
+            point_winner = self.simulate_point(current_server, current_receiver)
+            if point_winner == self.player1:
+                points_p1 += 1
             else:
-                receiver.sets_won += 1
+                points_p2 += 1
 
-            # Simple set win condition
-            if server.sets_won >= 6 and server.sets_won - receiver.sets_won >= 2:
-                return server
-            if receiver.sets_won >= 6 and receiver.sets_won - server.sets_won >= 2:
-                return receiver
+            total_points += 1
+            serve_changes += 1
 
-    def run_simulation(self) -> Player:
-        current_server = self.player1
-        current_receiver = self.player2
-        while True:
-            set_winner = self.simulate_set(current_server, current_receiver)
-            if set_winner == self.player1:
+            # Change server after first point, then every two points
+            if (total_points == 1) or (serve_changes == 2):
+                current_server, current_receiver = current_receiver, current_server
+                serve_changes = 0
+
+            # Check for tie-break win
+            if points_p1 >= 7 and points_p1 - points_p2 >= 2:
                 return self.player1
-            else:
+            if points_p2 >= 7 and points_p2 - points_p1 >= 2:
                 return self.player2
 
+    def simulate_set(self, server: Player, receiver: Player) -> Player:
+        games_p1 = 0
+        games_p2 = 0
+        current_server = server
+        current_receiver = receiver
+
+        while True:
+            game_winner = self.simulate_game(current_server, current_receiver)
+            if game_winner == self.player1:
+                games_p1 += 1
+            else:
+                games_p2 += 1
+
+            # Check for set win
+            if games_p1 >= 6 and games_p1 - games_p2 >= 2:
+                return game_winner
+            if games_p2 >= 6 and games_p2 - games_p1 >= 2:
+                return game_winner
+
+            # Handle tie-break at 6-6
+            if games_p1 == 6 and games_p2 == 6:
+                tie_break_winner = self.simulate_tie_break(current_server, current_receiver)
+                return tie_break_winner
+
+            # Alternate server for next game
+            current_server, current_receiver = current_receiver, current_server
+
+    def simulate_match(self) -> Player:
+        sets_p1 = 0
+        sets_p2 = 0
+
+        # Randomly decide who serves first
+        if random.random() < 0.5:
+            server = self.player1
+            receiver = self.player2
+        else:
+            server = self.player2
+            receiver = self.player1
+
+        while sets_p1 < 2 and sets_p2 < 2:
+            set_winner = self.simulate_set(server, receiver)
+            if set_winner == self.player1:
+                sets_p1 += 1
+            else:
+                sets_p2 += 1
+
+            # Alternate server for next set
+            server, receiver = receiver, server
+
+        return self.player1 if sets_p1 >= 2 else self.player2
+
+def compute_average_stats(stats_list: List[Dict], name: str) -> Dict:
+    """Compute weighted average statistics from match history."""
+    if not stats_list:
+        raise ValueError("Stats list cannot be empty")
+
+    weights = np.exp(np.linspace(0, 1, len(stats_list)))
+    weights = weights / np.sum(weights)
+
+    avg_stats = {
+        'name': name,
+        'serve_percentage': np.average(
+            [s['serve_percentage'] for s in stats_list], weights=weights
+        ),
+        'break_point_conversion': np.average(
+            [s['break_point_conversion'] for s in stats_list], weights=weights
+        ),
+        'first_serve_won': np.average(
+            [s['first_serve_won'] for s in stats_list], weights=weights
+        ),
+        'second_serve_won': np.average(
+            [s['second_serve_won'] for s in stats_list], weights=weights
+        ),
+        'sets_won': 0,
+        'games_won': 0,
+        'points_won': 0
+    }
+    return avg_stats
+
+def predict_match(
+    player1_avg_stats: Dict, player2_avg_stats: Dict, num_simulations: int = 1000
+) -> Tuple[str, float, Tuple[float, float]]:
+    """Predict match winner and return winner name with win probability and confidence interval."""
+    player1_wins = 0
+    player2_wins = 0
+
+    for _ in range(num_simulations):
+        # Add random variation based on historical performance
+        p1_stats = {
+            k: random.gauss(v, 0.05 * v) if isinstance(v, float) else v
+            for k, v in player1_avg_stats.items()
+        }
+        p2_stats = {
+            k: random.gauss(v, 0.05 * v) if isinstance(v, float) else v
+            for k, v in player2_avg_stats.items()
+        }
+
+        # Clamp probabilities between 0 and 1
+        for game_stats in [p1_stats, p2_stats]:
+            for key in [
+                'serve_percentage',
+                'break_point_conversion',
+                'first_serve_won',
+                'second_serve_won'
+            ]:
+                game_stats[key] = max(0, min(1, game_stats[key]))
+
+        # Create Player instances
+        player1 = Player(**p1_stats)
+        player2 = Player(**p2_stats)
+
+        # Simulate the match
+        match = Match(player1, player2)
+        winner = match.simulate_match()
+
+        if winner.name == player1_avg_stats['name']:
+            player1_wins += 1
+        else:
+            player2_wins += 1
+
+    # Calculate win rates
+    player1_win_rate = player1_wins / num_simulations
+    player2_win_rate = player2_wins / num_simulations
+
+    # Confidence intervals using normal approximation
+    confidence_interval = stats.norm.interval(
+        0.95,
+        loc=player1_win_rate,
+        scale=np.sqrt((player1_win_rate * (1 - player1_win_rate)) / num_simulations)
+    )
+
+    # Predict the winner
+    predicted_winner = (
+        player1_avg_stats['name'] if player1_win_rate > player2_win_rate else player2_avg_stats['name']
+    )
+
+    return predicted_winner, player1_win_rate, confidence_interval
 
 def main():
-    st.title("Tennis Match Simulator")
+    st.title("Tennis Match Predictor")
 
+    num_simulations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
+
+    # Player 1
     st.header("Player 1 Details")
-    p1_name = st.text_input("Name", "Player 1")
-    p1_serve = st.slider("Serve Percentage", 0.0, 1.0, 0.6)
-    p1_break = st.slider("Break Point Conversion", 0.0, 1.0, 0.3)
-    p1_first = st.slider("First Serve Won (%)", 0.0, 1.0, 0.7)
-    p1_second = st.slider("Second Serve Won (%)", 0.0, 1.0, 0.5)
+    p1_name = st.text_input("Player 1 Name", "Player 1")
+    num_matches_p1 = st.number_input("Number of Matches for Player 1", min_value=1, max_value=10, value=1, key='num_matches_p1')
 
+    p1_stats_list = []
+    st.subheader(f"Enter Stats for {p1_name}")
+    for i in range(int(num_matches_p1)):
+        st.markdown(f"**Match {i+1}**")
+        serve_percentage = st.slider(f"Serve Percentage (Match {i+1})", 0.0, 1.0, 0.6, key=f"p1_serve_{i}")
+        break_point_conversion = st.slider(f"Break Point Conversion (Match {i+1})", 0.0, 1.0, 0.3, key=f"p1_break_{i}")
+        first_serve_won = st.slider(f"First Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.7, key=f"p1_first_{i}")
+        second_serve_won = st.slider(f"Second Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.5, key=f"p1_second_{i}")
+
+        match_stats = {
+            'serve_percentage': serve_percentage,
+            'break_point_conversion': break_point_conversion,
+            'first_serve_won': first_serve_won,
+            'second_serve_won': second_serve_won
+        }
+        p1_stats_list.append(match_stats)
+
+    # Player 2
     st.header("Player 2 Details")
-    p2_name = st.text_input("Name", "Player 2", key="p2")
-    p2_serve = st.slider("Serve Percentage", 0.0, 1.0, 0.55, key="serve_p2")
-    p2_break = st.slider("Break Point Conversion", 0.0, 1.0, 0.25, key="break_p2")
-    p2_first = st.slider("First Serve Won (%)", 0.0, 1.0, 0.65, key="first_p2")
-    p2_second = st.slider("Second Serve Won (%)", 0.0, 1.0, 0.45, key="second_p2")
+    p2_name = st.text_input("Player 2 Name", "Player 2")
+    num_matches_p2 = st.number_input("Number of Matches for Player 2", min_value=1, max_value=10, value=1, key='num_matches_p2')
 
-    if st.button("Simulate Match"):
-        player1 = Player(p1_name, p1_serve, p1_break, p1_first, p1_second)
-        player2 = Player(p2_name, p2_serve, p2_break, p2_first, p2_second)
-        match = Match(player1, player2)
-        winner = match.run_simulation()
-        st.write(f"The winner is {winner.name}!")
+    p2_stats_list = []
+    st.subheader(f"Enter Stats for {p2_name}")
+    for i in range(int(num_matches_p2)):
+        st.markdown(f"**Match {i+1}**")
+        serve_percentage = st.slider(f"Serve Percentage (Match {i+1})", 0.0, 1.0, 0.6, key=f"p2_serve_{i}")
+        break_point_conversion = st.slider(f"Break Point Conversion (Match {i+1})", 0.0, 1.0, 0.3, key=f"p2_break_{i}")
+        first_serve_won = st.slider(f"First Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.7, key=f"p2_first_{i}")
+        second_serve_won = st.slider(f"Second Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.5, key=f"p2_second_{i}")
 
+        match_stats = {
+            'serve_percentage': serve_percentage,
+            'break_point_conversion': break_point_conversion,
+            'first_serve_won': first_serve_won,
+            'second_serve_won': second_serve_won
+        }
+        p2_stats_list.append(match_stats)
+
+    if st.button("Predict Match"):
+        try:
+            player1_avg_stats = compute_average_stats(p1_stats_list, p1_name)
+            player2_avg_stats = compute_average_stats(p2_stats_list, p2_name)
+
+            predicted_winner, win_rate, confidence_interval = predict_match(
+                player1_avg_stats, player2_avg_stats, int(num_simulations)
+            )
+
+            st.subheader("Prediction Results")
+            st.write(f"Predicted Winner: **{predicted_winner}**")
+            st.write(f"{player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%")
+            st.write(f"{player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%")
+            st.write(
+                f"95% Confidence Interval for {player1_avg_stats['name']} Win Rate: "
+                f"{confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%"
+            )
+        except ValueError as e:
+            st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
