@@ -388,6 +388,40 @@ def main():
                 f"95% Confidence Interval for {player1_avg_stats['name']} Win Rate: "
                 f"{confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%"
             )
+
+            # Prepare the report content
+            report = f"""
+            **Tennis Match Prediction Report**
+
+            **Number of Simulations:** {num_simulations}
+
+            **Player 1: {player1_avg_stats['name']}**
+            - Serve Percentage: {player1_avg_stats['serve_percentage']:.2f}
+            - Break Point Conversion: {player1_avg_stats['break_point_conversion']:.2f}
+            - First Serve Won: {player1_avg_stats['first_serve_won']:.2f}
+            - Second Serve Won: {player1_avg_stats['second_serve_won']:.2f}
+
+            **Player 2: {player2_avg_stats['name']}**
+            - Serve Percentage: {player2_avg_stats['serve_percentage']:.2f}
+            - Break Point Conversion: {player2_avg_stats['break_point_conversion']:.2f}
+            - First Serve Won: {player2_avg_stats['first_serve_won']:.2f}
+            - Second Serve Won: {player2_avg_stats['second_serve_won']:.2f}
+
+            **Prediction Results**
+            - Predicted Winner: {predicted_winner}
+            - {player1_avg_stats['name']} Win Rate: {win_rate * 100:.2f}%
+            - {player2_avg_stats['name']} Win Rate: {100 - win_rate * 100:.2f}%
+            - 95% Confidence Interval for {player1_avg_stats['name']} Win Rate: {confidence_interval[0]*100:.2f}% - {confidence_interval[1]*100:.2f}%
+            """
+
+            # Add the download button
+            st.download_button(
+                label="Download Results Report",
+                data=report,
+                file_name="tennis_match_prediction_report.txt",
+                mime="text/plain"
+            )
+
         except ValueError as e:
             st.error(f"Error: {e}")
 
