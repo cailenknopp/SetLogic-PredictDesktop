@@ -4,6 +4,19 @@ import random
 from typing import List, Dict, Tuple
 from scipy import stats  # For confidence intervals
 
+# Inject CSS for light mode theme
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #FFFFFF;
+        color: #000000;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Player class representing a tennis player
 class Player:
     def __init__(
@@ -228,21 +241,66 @@ def predict_match(
 def main():
     st.title("Tennis Match Predictor")
 
-    num_simulations = st.number_input("Number of Simulations", min_value=100, max_value=10000, value=1000, step=100)
+    num_simulations = st.number_input(
+        "Number of Simulations",
+        min_value=100,
+        max_value=10000,
+        value=1000,
+        step=100
+    )
 
     # Player 1
     st.header("Player 1 Details")
     p1_name = st.text_input("Player 1 Name", "Player 1")
-    num_matches_p1 = st.number_input("Number of Matches for Player 1", min_value=1, max_value=10, value=1, key='num_matches_p1')
+    num_matches_p1 = st.number_input(
+        "Number of Matches for Player 1",
+        min_value=1,
+        max_value=10,
+        value=1,
+        step=1,
+        key='num_matches_p1'
+    )
 
     p1_stats_list = []
     st.subheader(f"Enter Stats for {p1_name}")
     for i in range(int(num_matches_p1)):
         st.markdown(f"**Match {i+1}**")
-        serve_percentage = st.slider(f"Serve Percentage (Match {i+1})", 0.0, 1.0, 0.6, key=f"p1_serve_{i}")
-        break_point_conversion = st.slider(f"Break Point Conversion (Match {i+1})", 0.0, 1.0, 0.3, key=f"p1_break_{i}")
-        first_serve_won = st.slider(f"First Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.7, key=f"p1_first_{i}")
-        second_serve_won = st.slider(f"Second Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.5, key=f"p1_second_{i}")
+        serve_percentage = st.number_input(
+            f"Serve Percentage (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.6,
+            step=0.01,
+            format="%.2f",
+            key=f"p1_serve_{i}"
+        )
+        break_point_conversion = st.number_input(
+            f"Break Point Conversion (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.3,
+            step=0.01,
+            format="%.2f",
+            key=f"p1_break_{i}"
+        )
+        first_serve_won = st.number_input(
+            f"First Serve Won (%) (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.7,
+            step=0.01,
+            format="%.2f",
+            key=f"p1_first_{i}"
+        )
+        second_serve_won = st.number_input(
+            f"Second Serve Won (%) (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.01,
+            format="%.2f",
+            key=f"p1_second_{i}"
+        )
 
         match_stats = {
             'serve_percentage': serve_percentage,
@@ -255,16 +313,55 @@ def main():
     # Player 2
     st.header("Player 2 Details")
     p2_name = st.text_input("Player 2 Name", "Player 2")
-    num_matches_p2 = st.number_input("Number of Matches for Player 2", min_value=1, max_value=10, value=1, key='num_matches_p2')
+    num_matches_p2 = st.number_input(
+        "Number of Matches for Player 2",
+        min_value=1,
+        max_value=10,
+        value=1,
+        step=1,
+        key='num_matches_p2'
+    )
 
     p2_stats_list = []
     st.subheader(f"Enter Stats for {p2_name}")
     for i in range(int(num_matches_p2)):
         st.markdown(f"**Match {i+1}**")
-        serve_percentage = st.slider(f"Serve Percentage (Match {i+1})", 0.0, 1.0, 0.6, key=f"p2_serve_{i}")
-        break_point_conversion = st.slider(f"Break Point Conversion (Match {i+1})", 0.0, 1.0, 0.3, key=f"p2_break_{i}")
-        first_serve_won = st.slider(f"First Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.7, key=f"p2_first_{i}")
-        second_serve_won = st.slider(f"Second Serve Won (%) (Match {i+1})", 0.0, 1.0, 0.5, key=f"p2_second_{i}")
+        serve_percentage = st.number_input(
+            f"Serve Percentage (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.6,
+            step=0.01,
+            format="%.2f",
+            key=f"p2_serve_{i}"
+        )
+        break_point_conversion = st.number_input(
+            f"Break Point Conversion (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.3,
+            step=0.01,
+            format="%.2f",
+            key=f"p2_break_{i}"
+        )
+        first_serve_won = st.number_input(
+            f"First Serve Won (%) (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.7,
+            step=0.01,
+            format="%.2f",
+            key=f"p2_first_{i}"
+        )
+        second_serve_won = st.number_input(
+            f"Second Serve Won (%) (Match {i+1})",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.01,
+            format="%.2f",
+            key=f"p2_second_{i}"
+        )
 
         match_stats = {
             'serve_percentage': serve_percentage,
